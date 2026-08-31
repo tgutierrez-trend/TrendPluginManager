@@ -1,4 +1,4 @@
-# 🚀 Trend - APP Gestora de Plugins de Automatismos
+# 🚀 Trend - WEB APP Gestora de Plugins de Automatismos
 
 Un sistema extensible de procesamiento de tareas asíncronas basado en **FastAPI**, **SQLAlchemy** y un sistema de **Plugins dinámicos**. 
 
