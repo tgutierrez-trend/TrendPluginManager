@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-10">
+
+    <!-- Formulario Centrado -->
+    <div class="max-w-xl mx-auto">
+        {% include "components/create_plugin.html" %}
+    </div>
+
+    <!-- Listado de Plugins Registrados -->
+    <div class="space-y-6">
+        <div class="flex justify-between items-center border-b border-slate-300 pb-3">
+            <h2 class="text-xl font-bold text-slate-800">Plugins Registrados</h2>
+            <span class="text-xs font-mono bg-slate-200 text-slate-700 px-3 py-1 rounded-full border border-slate-300 font-semibold">
+                Total: {{ plugins | length }}
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {% for plugin in plugins %}
+            <div class="bg-white border border-slate-200 rounded-xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md hover:border-slate-300 transition">
+                <div>
+                    <!-- Header: Name + Version -->
+                    <div class="flex justify-between items-start gap-2 mb-2">
+                        <h3 class="font-bold text-slate-800 text-base">{{ plugin.name }}</h3>
+                        <span class="text-[10px] font-mono bg-sky-100 text-sky-800 border border-sky-200 px-2 py-0.5 rounded-full shrink-0 font-semibold">
+                            v{{ plugin.version }}
+                        </span>
+                    </div>
+
+                    <!-- Description -->
+                    <p class="text-xs text-slate-600 mb-4">{{ plugin.description or 'Sin descripción' }}</p>
+
+                    <!-- Detalle de Parámetros desde el Manifest -->
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-2">
+                        <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Parámetros</span>
+
+                        {% set params = plugin.manifest.get('parameters', {}) %}
+                        {% if params %}
+                            <div class="space-y-2">
+                            {% for param_key, param_info in params.items() %}
+                                <div class="text-xs bg-white p-2 rounded border border-slate-200 shadow-2xs">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-mono text-sky-700 font-bold">{{ param_key }}</span>
+                                        <span class="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-300 font-mono">
+                                            {{ param_info.type }}{% if param_info.required %} *{% endif %}
+                                        </span>
+                                    </div>
+
+                                    {% if param_info.description %}
+                                        <p class="text-[11px] text-slate-500 mb-1">{{ param_info.description }}</p>
+                                    {% endif %}
+
+                                    {% if param_info.options %}
+                                        <div class="flex flex-wrap gap-1 mt-1">
+                                            {% for opt in param_info.options %}
+                                                <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">{{ opt }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-[11px] text-slate-400 italic">Este plugin no requiere parámetros.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-span-2 p-8 bg-white rounded-xl border border-slate-200 text-center text-slate-400 text-xs shadow-xs">
+                No hay plugins creados en la base de datos.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

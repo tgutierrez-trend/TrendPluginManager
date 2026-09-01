@@ -40,6 +40,17 @@ def create_plugin(
 ):
 
     # --------------------------------------------------
+    # 0. Validar duplicados en la Base de Datos
+    # --------------------------------------------------
+    existing_plugin = db.query(Plugin).filter(Plugin.name == name).first()
+    if existing_plugin:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ya existe un plugin registrado con el nombre '{name}'."
+        )
+
+
+    # --------------------------------------------------
     # 1. Validar que sea un ZIP
     # --------------------------------------------------
 

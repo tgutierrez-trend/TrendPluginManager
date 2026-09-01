@@ -7,12 +7,14 @@ from fastapi import (
     Form
 )
 
-from typing import List
-
+from fastapi.responses import FileResponse, StreamingResponse
 import json
 import shutil
 
 from pathlib import Path
+
+import io
+import zipfile
 
 from sqlalchemy.orm import Session
 
@@ -21,7 +23,6 @@ from ..models import Plugin, Task
 from ..schemas import (
     TaskResponse
 )
-
 
 router = APIRouter(
     prefix="/tasks",
@@ -159,7 +160,7 @@ def validate_parameters(
                 )
 
 
-        elif expected_type == "boolean":
+        elif expected_type == "bool":
 
             if not isinstance(value, bool):
 
@@ -167,10 +168,26 @@ def validate_parameters(
                     status_code=400,
                     detail=(
                         f"El parámetro '{name}' "
-                        "debe ser de tipo boolean"
+                        "debe ser de tipo bool"
                     )
                 )
 
+        elif expected_type == "select":
+            options = definition.get(
+                "options",
+                []
+            )
+
+            if value not in options:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"El valor '{value}' no es válido "
+                        f"para el parámetro '{name}'. "
+                        f"Opciones permitidas: {options}"
+                    )
+                )
 
         elif expected_type is not None:
 
@@ -192,7 +209,7 @@ def validate_parameters(
 def create_task(
     plugin_id: int = Form(...),
     parameters: str = Form("{}"),
-    files: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     db: Session = Depends(get_db)
 ):
 
@@ -289,16 +306,24 @@ def create_task(
     # Guardar archivos
     # --------------------------------
 
-    file_path = (
-        input_dir /
-        files.filename
-    )
+    uploaded_files = []
 
-    with file_path.open("wb") as buffer:
+    for file in files:
 
-        shutil.copyfileobj(
-            files.file,
-            buffer
+        file_path = (
+            input_dir /
+            file.filename
+        )
+
+        with file_path.open("wb") as buffer:
+
+            shutil.copyfileobj(
+                file.file,
+                buffer
+            )
+
+        uploaded_files.append(
+            file.filename
         )
 
 
@@ -316,3 +341,51 @@ def get_tasks(
     tasks = db.query(Task).all()
 
     return tasks
+
+@router.get("/{task_id}/download")
+def download_task_output(task_id: int, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada")
+
+    if task.status != "completed":
+        raise HTTPException(
+            status_code=400, 
+            detail=f"La tarea está en estado '{task.status}', no hay salidas disponibles."
+        )
+
+    output_dir = EXECUTION_DIR / f"task_{task_id}" / "output"
+
+    if not output_dir.exists():
+        raise HTTPException(status_code=404, detail="El directorio de salida no existe")
+
+    # Listar los archivos generados dentro de /output
+    output_files = [f for f in output_dir.iterdir() if f.is_file()]
+
+    if not output_files:
+        raise HTTPException(status_code=404, detail="La tarea no generó archivos de salida")
+
+    # CASO 1: Hay un único archivo -> Se descarga directamente con su nombre/extensión original
+    if len(output_files) == 1:
+        single_file = output_files[0]
+        return FileResponse(
+            path=single_file,
+            filename=single_file.name,
+            media_type="application/octet-stream"
+        )
+
+    # CASO 2: Hay múltiples archivos -> Se comprimen en un .zip en memoria
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for file in output_files:
+            zip_file.write(file, arcname=file.name)
+
+    zip_buffer.seek(0)
+
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename=resultado_tarea_{task_id}.zip"
+        }
+    )

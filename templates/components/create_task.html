@@ -1,0 +1,159 @@
+<!-- Inyectamos los datos de plugins en un script JSON seguro -->
+<script id="plugins-json" type="application/json">
+    {{ plugins | tojson | safe }}
+</script>
+
+<div x-data="createTaskApp()" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+
+    <h2 class="text-lg font-bold text-slate-800 mb-1">Ejecutar Nueva Tarea</h2>
+    <p class="text-xs text-slate-500 mb-6">Selecciona un plugin registrado y adjunta los archivos requeridos para encolar la tarea.</p>
+
+    <!-- Feedback -->
+    <div x-show="errorMessage" x-text="errorMessage" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg" x-cloak></div>
+    <div x-show="successMessage" x-text="successMessage" class="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg" x-cloak></div>
+
+    <form @submit.prevent="submitTask()" class="space-y-4">
+        <!-- Selector de Plugin -->
+        <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Seleccionar Plugin *</label>
+            <select x-model="selectedPluginId" @change="onPluginChange()" required
+                    class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-sky-500">
+                <option value="">-- Selecciona un plugin --</option>
+                <template x-for="p in plugins" :key="p.id">
+                    <option :value="p.id" x-text="p.name + ' (ID: ' + p.id + ')'"></option>
+                </template>
+            </select>
+        </div>
+
+        <!-- Archivos Adjuntos del Endpoint (Obligatorio) -->
+        <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">
+                Archivos Adjuntos * 
+                <span class="text-slate-400 font-normal">(Requeridos para el procesamiento)</span>
+            </label>
+            <input type="file" multiple required
+                   @change="globalFiles = Array.from($event.target.files)"
+                   class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 bg-slate-50 rounded-lg border border-slate-300 p-1">
+        </div>
+
+        <!-- Renderizado Dinámico de Parámetros del Manifest -->
+        <template x-if="selectedPlugin && selectedPlugin.manifest && selectedPlugin.manifest.parameters">
+            <div class="space-y-4 pt-2 border-t border-slate-200">
+                <p class="text-xs font-bold text-sky-700 uppercase tracking-wider">Parámetros de Entrada</p>
+
+                <template x-for="(paramInfo, paramKey) in selectedPlugin.manifest.parameters" :key="paramKey">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-semibold text-slate-700">
+                            <span x-text="paramKey"></span>
+                            <span x-show="paramInfo.required" class="text-red-500">*</span>
+                        </label>
+                        <p x-show="paramInfo.description" x-text="paramInfo.description" class="text-[11px] text-slate-500 mb-1"></p>
+
+                        <!-- Input Tipo Select -->
+                        <template x-if="paramInfo.type === 'select'">
+                            <select x-model="formValues[paramKey]" :required="paramInfo.required"
+                                    class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-sky-500">
+                                <option value="">-- Selecciona una opción --</option>
+                                <template x-for="opt in paramInfo.options" :key="opt">
+                                    <option :value="opt" x-text="opt"></option>
+                                </template>
+                            </select>
+                        </template>
+
+                        <!-- Input Tipo Boolean / Checkbox -->
+                        <template x-if="paramInfo.type === 'boolean'">
+                            <label class="inline-flex items-center gap-2 cursor-pointer mt-1">
+                                <input type="checkbox" x-model="formValues[paramKey]" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+                                <span class="text-xs text-slate-600">Habilitar / Activar</span>
+                            </label>
+                        </template>
+
+                        <!-- Inputs Genéricos (String, Integer, Float, etc) -->
+                        <template x-if="paramInfo.type !== 'select' && paramInfo.type !== 'boolean'">
+                            <input :type="paramInfo.type === 'integer' || paramInfo.type === 'number' ? 'number' : 'text'"
+                                   x-model="formValues[paramKey]"
+                                   :required="paramInfo.required"
+                                   :min="paramInfo.min" :max="paramInfo.max"
+                                   class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-sky-500">
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <button type="submit" 
+                :disabled="loading || !selectedPluginId || globalFiles.length === 0"
+                class="w-full mt-4 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-300 text-white font-semibold py-2.5 px-4 rounded-lg text-xs transition flex justify-center items-center gap-2 shadow-xs">
+            <span x-show="!loading">Crear y Encolar Tarea</span>
+            <span x-show="loading" class="animate-pulse" x-cloak>Procesando...</span>
+        </button>
+    </form>
+</div>
+
+<script>
+function createTaskApp() {
+    return {
+        plugins: JSON.parse(document.getElementById('plugins-json').textContent || '[]'),
+        selectedPluginId: '',
+        selectedPlugin: null,
+        formValues: {},
+        globalFiles: [],
+        loading: false,
+        errorMessage: '',
+        successMessage: '',
+
+        onPluginChange() {
+            this.selectedPlugin = this.plugins.find(p => p.id == this.selectedPluginId) || null;
+            this.formValues = {};
+            
+            if (this.selectedPlugin && this.selectedPlugin.manifest && this.selectedPlugin.manifest.parameters) {
+                const params = this.selectedPlugin.manifest.parameters;
+                Object.keys(params).forEach(key => {
+                    this.formValues[key] = params[key].default !== undefined ? params[key].default : '';
+                });
+            }
+        },
+
+        async submitTask() {
+            if (!this.selectedPluginId) return;
+
+            this.loading = true;
+            this.errorMessage = '';
+            this.successMessage = '';
+
+            const formData = new FormData();
+            formData.append('plugin_id', this.selectedPluginId);
+            formData.append('parameters', JSON.stringify(this.formValues));
+
+            // Adjuntar los archivos seleccionados en la clave 'files'
+            this.globalFiles.forEach(file => {
+                formData.append('files', file, file.name);
+            });
+
+            try {
+                const response = await fetch('/tasks/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    this.successMessage = '¡Tarea creada y encolada con éxito!';
+                    this.selectedPluginId = '';
+                    this.selectedPlugin = null;
+                    this.globalFiles = [];
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    const errorData = await response.json();
+                    this.errorMessage = typeof errorData.detail === 'string' 
+                        ? errorData.detail 
+                        : JSON.stringify(errorData.detail) || 'Error al crear la tarea.';
+                }
+            } catch (err) {
+                this.errorMessage = 'Error de conexión con el servidor.';
+            } finally {
+                this.loading = false;
+            }
+        }
+    }
+}
+</script>

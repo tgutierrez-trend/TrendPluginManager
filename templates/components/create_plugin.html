@@ -1,0 +1,72 @@
+<div x-data="{
+    loading: false,
+    errorMessage: '',
+    successMessage: '',
+
+    async uploadPlugin(event) {
+        this.loading = true;
+        this.errorMessage = '';
+        this.successMessage = '';
+
+        const formData = new FormData(event.target);
+
+        try {
+            const response = await fetch('/plugins/', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                this.successMessage = '¡Plugin registrado correctamente!';
+                event.target.reset();
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                const errorData = await response.json();
+                this.errorMessage = typeof errorData.detail === 'string' 
+                    ? errorData.detail 
+                    : JSON.stringify(errorData.detail) || 'Error al subir el plugin.';
+            }
+        } catch (err) {
+            this.errorMessage = 'Error de conexión con el servidor.';
+        } finally {
+            this.loading = false;
+        }
+    }
+}" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+
+    <h2 class="text-lg font-bold text-slate-800 mb-1">Crear Nuevo Plugin</h2>
+    <p class="text-xs text-slate-500 mb-6">Ingresa los datos y sube el archivo `.zip` que contiene el `manifest.json`, `plugin.py` y `requirements.txt`.</p>
+
+    <!-- Feedback -->
+    <div x-show="errorMessage" x-text="errorMessage" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg" x-cloak></div>
+    <div x-show="successMessage" x-text="successMessage" class="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg" x-cloak></div>
+
+    <form @submit.prevent="uploadPlugin($event)" class="space-y-4">
+        <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre del Plugin *</label>
+            <input type="text" name="name" required
+                   placeholder="Ej: Data Extractor"
+                   class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-sky-500 focus:bg-white transition">
+        </div>
+
+        <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Descripción *</label>
+            <textarea name="description" rows="2" required
+                      placeholder="Descripción breve del plugin..."
+                      class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-sky-500 focus:bg-white transition"></textarea>
+        </div>
+
+        <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Archivo del Plugin (`.zip`) *</label>
+            <input type="file" name="plugin_file" required accept=".zip"
+                   class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 bg-slate-50 rounded-lg border border-slate-300 p-1">
+        </div>
+
+        <button type="submit" 
+                :disabled="loading"
+                class="w-full mt-2 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-300 text-white font-semibold py-2.5 px-4 rounded-lg text-xs transition flex justify-center items-center gap-2 shadow-xs">
+            <span x-show="!loading">Registrar Plugin</span>
+            <span x-show="loading" class="animate-pulse" x-cloak>Subiendo zip...</span>
+        </button>
+    </form>
+</div>

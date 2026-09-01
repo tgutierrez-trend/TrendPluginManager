@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trend Plugin Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-slate-900 border-b border-slate-800 text-white p-4 shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto grid grid-cols-3 items-center">
+            
+            <!-- Izquierda: Espacio para Logo -->
+            <div class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="Logo" class="h-9 w-auto object-contain" onerror="this.style.display='none'">
+                <!-- Placeholder opcional en caso de no encontrar la imagen aún -->
+                <div class="h-8 w-8 bg-sky-600 rounded-lg flex items-center justify-center font-bold text-sm text-white shadow">
+                    T
+                </div>
+            </div>
+
+            <!-- Centro: Título Centrado -->
+            <div class="text-center">
+                <h1 class="text-xl font-bold tracking-wide text-sky-400">Trend Plugin Manager</h1>
+            </div>
+
+            <!-- Derecha: Solo botón Tareas -->
+            <div class="flex justify-end gap-2">
+                <a href="/" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                    Plugins
+                </a>
+                <a href="/tasks-view" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm">
+                    Tareas
+                </a>
+            </div>
+
+        </div>
+    </nav>
+
+    <!-- Contenedor Principal (Azul/Blanco muy claro en armonía) -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+</body>
+</html>
